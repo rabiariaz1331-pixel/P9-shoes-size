@@ -1,63 +1,36 @@
 import streamlit as st
-import pandas as pd
-import joblib   # safer than pickle for sklearn models
+import pickle
+import numpy as np
 
-# -------------------------------
 # Load the trained model
-# -------------------------------
-try:
-    model = joblib.load("model.pkl")
-except Exception as e:
-    st.error(f"❌ Could not load model.pkl: {e}")
-    st.stop()
+with open("assets/model.pkl", "rb") as file:
+    model = pickle.load(file)
 
-# -------------------------------
-# App Title
-# -------------------------------
+# Load the saved encoder
+with open("assets/label_encoder.pkl", "rb") as file:
+    encoder = pickle.load(file)
+
+st.set_page_config(page_title="Shoe Size Prediction", page_icon="👟", layout="centered")
+
 st.title("👟 Shoe Size Prediction App")
+st.markdown("Enter the details below to predict the *Shoe Size* using a trained Linear Regression model.")
 
-st.write("""
-This app predicts **Shoe Size** based on:  
-- Age  
-- Height (cm)  
-- Gender  
-""")
+# Sidebar info
+st.sidebar.header("ℹ️ About")
+st.sidebar.info("This app uses a *Linear Regression* model trained with scikit-learn. "
+                "It predicts the shoe size based on Age, Height, and Gender.")
 
-# -------------------------------
-# Load dataset (optional preview)
-# -------------------------------
-try:
-    data = pd.read_csv("shoes_size_age_height_gender_size.csv")
-    if st.checkbox("Show sample dataset"):
-        st.write(data.head())
-except FileNotFoundError:
-    st.warning("⚠️ shoes_size_age_height_gender_size.csv not found in the app folder.")
+# Input fields
+age = st.number_input("Age", min_value=10, max_value=70, value=25)
+height = st.number_input("Height (cm)", min_value=100, max_value=220, value=170)
+gender = st.selectbox("Gender", encoder.classes_)  # Use classes from encoder
 
-# -------------------------------
-# User Inputs
-# -------------------------------
-st.sidebar.header("Enter Features")
+# Encode gender using the saved encoder
+gender_encoded = encoder.transform([gender])[0]
 
-age = st.sidebar.number_input("Age", min_value=1, max_value=100, value=20)
-height = st.sidebar.number_input("Height (cm)", min_value=50, max_value=250, value=170)
-gender = st.sidebar.selectbox("Gender", ["Male", "Female"])
+# Prepare feature vector
+features = np.array([[age, height, gender_encoded]])
 
-# Convert gender into numeric if model was trained that way
-# (Assuming Male=1, Female=0)
-gender_encoded = 1 if gender == "Male" else 0
-
-# Prepare input for model
-features = pd.DataFrame(
-    [[age, height, gender_encoded]],
-    columns=["age", "height", "gender"]
-)
-
-# -------------------------------
-# Prediction
-# -------------------------------
-if st.button("Predict Shoe Size 👟"):
-    try:
-        prediction = model.predict(features)
-        st.success(f"👟 Predicted Shoe Size: **{prediction[0]:.1f}**")
-    except Exception as e:
-        st.error(f"⚠️ Error in prediction: {e}")
+if st.button("Predict Shoe Size"):
+    prediction = model.predict(features)
+    st.success(f"Predicted Shoe Size: *{prediction[0]:.2f}*")
